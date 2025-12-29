@@ -1,68 +1,70 @@
-require("dotenv").config();
-const express = require("express");
-const cors = require("cors");
-const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
+// index.js
+import "dotenv/config";
+import express from "express";
+import cors from "cors";
+import { Client, GatewayIntentBits, Events } from "discord.js";
 
 const app = express();
 
-// ⚡ Autoriser ton site GitHub Pages
-app.use(cors({
-  origin: 'https://cirfalshortfortinte-sketch.github.io/brainrot-order-form/' // <-- remplace par ton site si besoin
-}));
-
-app.use(express.json());
-
-// BOT DISCORD
-const bot = new Client({
-  intents: [GatewayIntentBits.Guilds]
-});
-
-bot.login(process.env.DISCORD_TOKEN);
-
-bot.once("ready", () => {
-  console.log("🤖 Bot Discord connecté");
-});
-
-// ROUTE POUR LE SITE
-app.post("/order", async (req, res) => {
-  try {
-    const {
-      username,
-      discord,
-      items,
-      payment,
-      budget,
-      urgency,
-      message
-    } = req.body;
-
-    const channel = await bot.channels.fetch(process.env.CHANNEL_ID);
-
-    const embed = new EmbedBuilder()
-      .setTitle("🛒 Nouvelle commande")
-      .setColor(0x9b59b6)
-      .addFields(
-        { name: "👤 Roblox", value: username, inline: true },
-        { name: "💬 Discord", value: discord, inline: true },
-        { name: "📦 Items", value: items.join("\n") || "Aucun" },
-        { name: "💳 Paiement", value: payment, inline: true },
-        { name: "💰 Budget", value: budget || "Non précisé", inline: true },
-        { name: "⚡ Urgence", value: urgency, inline: true },
-        { name: "📝 Message", value: message || "Aucun" }
-      )
-      .setTimestamp();
-
-    await channel.send({ embeds: [embed] });
-
-    res.json({ success: true });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false });
-  }
-});
-
-// ⚡ Défaut PORT si Render ne le fournit pas
+// --- CONFIG ---
 const PORT = process.env.PORT || 3000;
+
+// Mets l'URL de ton frontend ici (IMPORTANT). Exemple Render/Vercel/Netlify.
+const ALLOWED_ORIGINS = [
+  process.env.FRONTEND_URL,      // ex: https://mon-frontend.onrender.com
+  "http://localhost:5173",       // dev Vite
+  "http://localhost:3000",       // au cas où
+].filter(Boolean);
+
+// --- MIDDLEWARES ---
+app.use(express.json());
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      // Autorise les requêtes sans origin (ex: curl, health checks)
+      if (!origin) return cb(null, true);
+      if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+      return cb(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    credentials: true,
+  })
+);
+
+// --- ROUTES (IMPORTANT pour éviter "backend indisponible") ---
+app.get("/", (req, res) => {
+  res.status(200).send("OK");
+});
+
+app.get("/health", (req, res) => {
+  res.status(200).json({ ok: true, uptime: process.uptime() });
+});
+
+// Exemple d'endpoint (optionnel)
+app.post("/api/ping", (req, res) => {
+  res.json({ pong: true, body: req.body ?? null });
+});
+
+// --- START HTTP SERVER ---
 app.listen(PORT, () => {
   console.log(`🚀 Backend lancé sur le port ${PORT}`);
 });
+
+// --- DISCORD BOT ---
+const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
+if (!DISCORD_TOKEN) {
+  console.warn("⚠️ DISCORD_TOKEN manquant. Le bot Discord ne sera pas démarré.");
+} else {
+  const client = new Client({
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
+  });
+
+  // Discord.js v14+ : utiliser Events.ClientReady
+  client.once(Events.ClientReady, (c) => {
+    console.log(`🤖 Bot Discord connecté en tant que ${c.user.tag}`);
+  });
+
+  client.login(DISCORD_TOKEN).catch((err) => {
+    console.error("❌ Connexion Discord échouée :", err?.message || err);
+  });
+}
