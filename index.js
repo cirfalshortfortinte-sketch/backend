@@ -1,25 +1,24 @@
-// index.js
-import "dotenv/config";
-import express from "express";
-import cors from "cors";
-import { Client, GatewayIntentBits, Events } from "discord.js";
+// index.js (CommonJS)
+require("dotenv").config();
+
+const express = require("express");
+const cors = require("cors");
+const { Client, GatewayIntentBits, Events } = require("discord.js");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Mets l'URL de ton frontend dans Render: FRONTEND_URL=https://ton-frontend...
 const ALLOWED_ORIGINS = [
-  process.env.FRONTEND_URL,
+  process.env.FRONTEND_URL, // ex: https://ton-frontend.onrender.com
   "http://localhost:5173",
 ].filter(Boolean);
 
 app.use(express.json());
 
-// CORS (si tu n'as pas encore l'URL frontend, tu peux temporairement mettre origin: true)
 app.use(
   cors({
     origin: (origin, cb) => {
-      if (!origin) return cb(null, true); // curl/healthchecks
+      if (!origin) return cb(null, true);
       if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
       return cb(new Error(`CORS blocked for origin: ${origin}`));
     },
@@ -27,7 +26,7 @@ app.use(
   })
 );
 
-// Routes utiles
+// Routes pour vérifier que le backend répond bien
 app.get("/", (req, res) => res.status(200).send("OK"));
 app.get("/health", (req, res) =>
   res.status(200).json({ ok: true, uptime: process.uptime() })
@@ -45,7 +44,7 @@ if (!token) {
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
   });
 
-  // ✅ Corrige l'avertissement: utiliser clientReady (Events.ClientReady)
+  // ✅ plus d'avertissement "ready" : utiliser ClientReady
   client.once(Events.ClientReady, (c) => {
     console.log(`🤖 Bot Discord connecté (${c.user.tag})`);
   });
