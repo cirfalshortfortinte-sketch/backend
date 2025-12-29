@@ -4,7 +4,12 @@ const cors = require("cors");
 const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
 
 const app = express();
-app.use(cors());
+
+// ⚡ Autoriser ton site GitHub Pages
+app.use(cors({
+  origin: 'https://cirfalshortfortinte-sketch.github.io/brainrot-order-form/' // <-- remplace par ton site si besoin
+}));
+
 app.use(express.json());
 
 // BOT DISCORD
@@ -56,6 +61,8 @@ app.post("/order", async (req, res) => {
   }
 });
 
-app.listen(process.env.PORT, () => {
-  console.log("🚀 Backend lancé");
+// ⚡ Défaut PORT si Render ne le fournit pas
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Backend lancé sur le port ${PORT}`);
 });
