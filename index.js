@@ -1,4 +1,4 @@
-// index.js
+// index.js - version "CORS GitHub Pages" robuste
 require("dotenv").config();
 
 const express = require("express");
@@ -8,51 +8,58 @@ const { Client, GatewayIntentBits, Events } = require("discord.js");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ✅ Origines autorisées
+const ALLOWED_ORIGINS = [
+  "https://cirfalshortfortinte-sketch.github.io",
+  "http://localhost:5173",
+].concat((process.env.FRONTEND_URL || "").trim() ? [(process.env.FRONTEND_URL || "").trim()] : []);
+
+// ✅ Middleware CORS "sûr" + préflight
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization, X-Requested-With"
+    );
+  }
+
+  // ✅ Répond toujours aux preflights
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
+
 app.use(express.json());
 
-// ✅ Ajoute ici toutes les origines autorisées
-const ALLOWED_ORIGINS = [
-  "https://cirfalshortfortinte-sketch.github.io", // ✅ ton frontend GitHub Pages
-  "http://localhost:5173",                        // dev
-  (process.env.FRONTEND_URL || "").trim(),        // optionnel (si tu l'utilises)
-].filter(Boolean);
-
-app.use(
-  cors({
-    origin: (origin, cb) => {
-      // autorise les requêtes sans origin (curl / health checks)
-      if (!origin) return cb(null, true);
-
-      if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
-
-      console.log("❌ CORS blocked:", origin);
-      return cb(new Error(`CORS blocked: ${origin}`));
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
+// Routes de test
+app.get("/", (req, res) => res.status(200).send("OK"));
+app.get("/health", (req, res) =>
+  res.status(200).json({ ok: true, uptime: process.uptime() })
 );
 
-// ✅ Répond correctement aux preflights
-app.options("*", cors());
-
-// Routes
-app.get("/", (req, res) => res.status(200).send("OK"));
-
-app.get("/health", (req, res) => {
-  res.status(200).json({ ok: true, uptime: process.uptime() });
+// ⚠️ Exemple route de commande (à adapter à ton frontend)
+app.post("/command", async (req, res) => {
+  // Ici tu reçois la commande envoyée par le frontend
+  // Exemple: { command: "..." }
+  res.status(200).json({ ok: true, received: req.body ?? null });
 });
 
-// Démarrage HTTP
+// Start server
 app.listen(PORT, () => {
   console.log(`🚀 Backend lancé sur le port ${PORT}`);
-  console.log("✅ CORS autorisé pour:", ALLOWED_ORIGINS.join(" | "));
+  console.log(`✅ CORS autorisé pour: ${ALLOWED_ORIGINS.join(" | ")}`);
 });
 
-// -------- Discord Bot --------
+// Discord
 const token = (process.env.DISCORD_TOKEN || "").trim();
-
 if (!token) {
   console.warn("⚠️ DISCORD_TOKEN manquant, bot non lancé");
 } else {
