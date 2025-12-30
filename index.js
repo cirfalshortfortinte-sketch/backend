@@ -8,61 +8,63 @@ const { Client, GatewayIntentBits, Events } = require("discord.js");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// URL de ton frontend (à définir sur Render)
+app.use(express.json());
+
+// ✅ Ajoute ici toutes les origines autorisées
 const ALLOWED_ORIGINS = [
-  process.env.FRONTEND_URL,   // ex: https://mon-frontend.onrender.com
-  "http://localhost:5173"
+  "https://cirfalshortfortinte-sketch.github.io", // ✅ ton frontend GitHub Pages
+  "http://localhost:5173",                        // dev
+  (process.env.FRONTEND_URL || "").trim(),        // optionnel (si tu l'utilises)
 ].filter(Boolean);
 
-// Middlewares
-app.use(express.json());
 app.use(
   cors({
     origin: (origin, cb) => {
+      // autorise les requêtes sans origin (curl / health checks)
       if (!origin) return cb(null, true);
+
       if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+
+      console.log("❌ CORS blocked:", origin);
       return cb(new Error(`CORS blocked: ${origin}`));
     },
-    credentials: true
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
-// Routes de test (OBLIGATOIRES)
-app.get("/", (req, res) => {
-  res.status(200).send("OK");
-});
+// ✅ Répond correctement aux preflights
+app.options("*", cors());
+
+// Routes
+app.get("/", (req, res) => res.status(200).send("OK"));
 
 app.get("/health", (req, res) => {
-  res.status(200).json({
-    ok: true,
-    uptime: process.uptime()
-  });
+  res.status(200).json({ ok: true, uptime: process.uptime() });
 });
 
 // Démarrage HTTP
 app.listen(PORT, () => {
   console.log(`🚀 Backend lancé sur le port ${PORT}`);
+  console.log("✅ CORS autorisé pour:", ALLOWED_ORIGINS.join(" | "));
 });
 
 // -------- Discord Bot --------
-const token = process.env.DISCORD_TOKEN;
+const token = (process.env.DISCORD_TOKEN || "").trim();
 
 if (!token) {
   console.warn("⚠️ DISCORD_TOKEN manquant, bot non lancé");
 } else {
   const client = new Client({
-    intents: [
-      GatewayIntentBits.Guilds,
-      GatewayIntentBits.GuildMessages
-    ]
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
   });
 
-  // ✅ plus de warning "ready"
   client.once(Events.ClientReady, (c) => {
     console.log(`🤖 Bot Discord connecté : ${c.user.tag}`);
   });
 
   client.login(token).catch((err) => {
-    console.error("❌ Erreur connexion Discord :", err);
+    console.error("❌ Erreur connexion Discord :", err?.message || err);
   });
 }
