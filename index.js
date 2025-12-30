@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 
 // -------------------- CORS (robuste) --------------------
 const ALLOWED_ORIGINS = [
-  "https://cirfalshortfortinte-sketch.github.io", // ✅ ton GitHub Pages
+  "https://cirfalshortfortinte-sketch.github.io/brainrot-order-form/", // ✅ ton GitHub Pages
   "http://localhost:5173",                        // dev
   (process.env.FRONTEND_URL || "").trim(),        // optionnel
 ].filter(Boolean);
@@ -127,3 +127,4 @@ app.listen(PORT, () => {
   console.log(`🚀 Backend lancé sur le port ${PORT}`);
   console.log(`✅ CORS autorisé pour: ${ALLOWED_ORIGINS.join(" | ")}`);
 });
+
