@@ -1,20 +1,19 @@
-// index.js - version "CORS GitHub Pages" robuste
+// index.js
 require("dotenv").config();
 
 const express = require("express");
-const cors = require("cors");
 const { Client, GatewayIntentBits, Events } = require("discord.js");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ✅ Origines autorisées
+// -------------------- CORS (robuste) --------------------
 const ALLOWED_ORIGINS = [
-  "https://cirfalshortfortinte-sketch.github.io",
-  "http://localhost:5173",
-].concat((process.env.FRONTEND_URL || "").trim() ? [(process.env.FRONTEND_URL || "").trim()] : []);
+  "https://cirfalshortfortinte-sketch.github.io", // ✅ ton GitHub Pages
+  "http://localhost:5173",                        // dev
+  (process.env.FRONTEND_URL || "").trim(),        // optionnel
+].filter(Boolean);
 
-// ✅ Middleware CORS "sûr" + préflight
 app.use((req, res, next) => {
   const origin = req.headers.origin;
 
@@ -29,49 +28,102 @@ app.use((req, res, next) => {
     );
   }
 
-  // ✅ Répond toujours aux preflights
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
-  }
+  // ✅ Répond aux preflights
+  if (req.method === "OPTIONS") return res.sendStatus(204);
 
   next();
 });
 
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
 
-// Routes de test
+// -------------------- Routes utilitaires --------------------
 app.get("/", (req, res) => res.status(200).send("OK"));
-app.get("/health", (req, res) =>
-  res.status(200).json({ ok: true, uptime: process.uptime() })
-);
 
-// ⚠️ Exemple route de commande (à adapter à ton frontend)
-app.post("/command", async (req, res) => {
-  // Ici tu reçois la commande envoyée par le frontend
-  // Exemple: { command: "..." }
-  res.status(200).json({ ok: true, received: req.body ?? null });
+app.get("/health", (req, res) => {
+  res.status(200).json({ ok: true, uptime: process.uptime() });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Backend lancé sur le port ${PORT}`);
-  console.log(`✅ CORS autorisé pour: ${ALLOWED_ORIGINS.join(" | ")}`);
-});
+// -------------------- Discord Bot --------------------
+const DISCORD_TOKEN = (process.env.DISCORD_TOKEN || "").trim();
+const CHANNEL_ID = (process.env.CHANNEL_ID || "").trim();
 
-// Discord
-const token = (process.env.DISCORD_TOKEN || "").trim();
-if (!token) {
-  console.warn("⚠️ DISCORD_TOKEN manquant, bot non lancé");
+const client =
+  DISCORD_TOKEN
+    ? new Client({
+        intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
+      })
+    : null;
+
+if (!DISCORD_TOKEN) {
+  console.warn("⚠️ DISCORD_TOKEN manquant : bot non démarré");
 } else {
-  const client = new Client({
-    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
-  });
-
   client.once(Events.ClientReady, (c) => {
     console.log(`🤖 Bot Discord connecté : ${c.user.tag}`);
   });
 
-  client.login(token).catch((err) => {
-    console.error("❌ Erreur connexion Discord :", err?.message || err);
+  client.login(DISCORD_TOKEN).catch((err) => {
+    console.error("❌ Discord login failed:", err?.message || err);
   });
 }
+
+// -------------------- ROUTE PRINCIPALE: /order --------------------
+// ✅ Ton frontend envoie la commande vers /order, donc on la gère ici
+app.post("/order", async (req, res) => {
+  try {
+    const order = req.body;
+
+    if (!order || typeof order !== "object") {
+      return res.status(400).json({ ok: false, error: "Commande invalide" });
+    }
+
+    console.log("📦 Nouvelle commande reçue :", order);
+
+    // Envoi dans Discord si possible
+    if (!client) {
+      return res.status(200).json({
+        ok: true,
+        message: "Commande reçue (bot Discord non configuré)",
+      });
+    }
+
+    if (!CHANNEL_ID) {
+      return res.status(200).json({
+        ok: true,
+        message: "Commande reçue (CHANNEL_ID manquant)",
+      });
+    }
+
+    const channel = await client.channels.fetch(CHANNEL_ID).catch(() => null);
+
+    if (!channel || !channel.isTextBased()) {
+      return res.status(200).json({
+        ok: true,
+        message: "Commande reçue (channel introuvable ou non textuel)",
+      });
+    }
+
+    // Texte lisible même si la structure de l'objet order varie
+    const pretty = "```json\n" + JSON.stringify(order, null, 2) + "\n```";
+
+    await channel.send({
+      content: `🛒 **Nouvelle commande reçue**\n${pretty}`,
+    });
+
+    return res.status(200).json({ ok: true, message: "Commande envoyée ✅" });
+  } catch (err) {
+    console.error("❌ Erreur POST /order :", err);
+    return res.status(500).json({ ok: false, error: "Erreur serveur" });
+  }
+});
+
+// -------------------- Gestion d'erreurs --------------------
+app.use((err, req, res, next) => {
+  console.error("❌ Error middleware:", err?.message || err);
+  res.status(500).json({ ok: false, error: err?.message || "Server error" });
+});
+
+// -------------------- Start server --------------------
+app.listen(PORT, () => {
+  console.log(`🚀 Backend lancé sur le port ${PORT}`);
+  console.log(`✅ CORS autorisé pour: ${ALLOWED_ORIGINS.join(" | ")}`);
+});
