@@ -72,6 +72,17 @@ if (!DISCORD_TOKEN) {
 } else {
   client.once(Events.ClientReady, (c) => {
     console.log(`🤖 Bot Discord connecté : ${c.user.tag}`);
+
+    // ✅ Statut du bot
+    client.user.setPresence({
+      activities: [
+        {
+          name: "vos commandes 📦",
+          type: 3, // 3 = Watching
+        },
+      ],
+      status: "online", // online | idle | dnd | invisible
+    });
   });
 
   client.login(DISCORD_TOKEN).catch((err) => {
