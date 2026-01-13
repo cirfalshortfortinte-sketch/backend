@@ -16,6 +16,7 @@ const PORT = process.env.PORT || 3000;
 // ✅ IMPORTANT: Origin = domaine seulement (pas /brainrot-order-form/)
 const ALLOWED_ORIGINS = [
   "https://cirfalshortfortinte-sketch.github.io",
+  "https://rot-market.com",
   "http://localhost:5173",
   (process.env.FRONTEND_URL || "").trim(),
 ].filter(Boolean);
@@ -28,7 +29,10 @@ app.use((req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
     res.setHeader("Access-Control-Allow-Credentials", "true");
-    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+    res.setHeader(
+      "Access-Control-Allow-Methods",
+      "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+    );
     res.setHeader(
       "Access-Control-Allow-Headers",
       "Content-Type, Authorization, X-Requested-With"
@@ -197,23 +201,31 @@ app.post("/order", async (req, res) => {
 
     // Si le bot n'est pas prêt, on confirme quand même la réception
     if (!client) {
-      return res.status(200).json({ ok: true, message: "Commande reçue (bot non configuré)" });
+      return res
+        .status(200)
+        .json({ ok: true, message: "Commande reçue (bot non configuré)" });
     }
     if (!CHANNEL_ID) {
-      return res.status(200).json({ ok: true, message: "Commande reçue (CHANNEL_ID manquant)" });
+      return res
+        .status(200)
+        .json({ ok: true, message: "Commande reçue (CHANNEL_ID manquant)" });
     }
 
     const channel = await client.channels.fetch(CHANNEL_ID).catch(() => null);
 
     if (!channel || !channel.isTextBased()) {
-      return res.status(200).json({ ok: true, message: "Commande reçue (channel invalide)" });
+      return res
+        .status(200)
+        .json({ ok: true, message: "Commande reçue (channel invalide)" });
     }
 
     // ✅ Embed pour le staff (salon)
     const orderEmbed = buildOrderEmbed(order);
 
     // Petit bonus: mention si le client a mis une mention
-    const maybePing = (order?.discord || "").trim().startsWith("<@") ? `${order.discord}\n` : "";
+    const maybePing = (order?.discord || "").trim().startsWith("<@")
+      ? `${order.discord}\n`
+      : "";
 
     await channel.send({
       content: `${maybePing}📦 **Commande enregistrée**`,
@@ -241,7 +253,9 @@ app.post("/order", async (req, res) => {
       ok: true,
       message: "Commande envoyée ✅",
       dm: dmStatus,
-      dmHint: userId ? undefined : "Aucun ID Discord détecté. Mets ton ID ou une mention <@id> pour recevoir le DM.",
+      dmHint: userId
+        ? undefined
+        : "Aucun ID Discord détecté. Mets ton ID ou une mention <@id> pour recevoir le DM.",
     });
   } catch (err) {
     console.error("❌ Erreur POST /order :", err);
